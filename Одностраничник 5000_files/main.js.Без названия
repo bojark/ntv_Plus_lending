@@ -1,0 +1,292 @@
+$(function () {
+
+
+    $('input[name="phone"]').mask('+7 (999) 999-99-99');
+
+    regionController = new searchRegion(['west', 'east', 'least'], 'Москва', 'west');
+
+    $('.faq, .tooltip').tooltipster({
+        theme: 'tooltipster-light'
+    });
+
+
+});
+
+
+function searchRegion(regions, current_city, current_region) {
+    this.regions = regions;
+    this.current = current_region;
+    this.tariff = new tariffController();
+    this.data = {};
+    $.getJSON('js/data.json', function(d){
+        t.data = d;
+        t.createRegions(t.regions);
+    });
+
+    this.region_list =  $('.region-list');
+    this.region_name = $('.region-name');
+    this.search = $('#search');
+    var t = this;
+
+    t.region_name.find('strong').text(current_city);
+
+    this.createRegions = function(r){
+        var container = $('#regions');
+        $.each(r, function(i,e){
+            var region = t.data[e],
+                wrap_region = $('<div class="wrap-regions" data-district="'+e+'"></div>'),
+                name = $('<div class="region-title">'+region.name+'</div>'),
+                fl = '',
+                reggroup = '',
+                reglist = $('<div class="region-columns"></div>');
+            if (region.tooltip) {
+                name.append(' <i class="tooltip" title="'+region.tooltip+'"></i>')
+            }
+            wrap_region.append(name);
+
+            $.each(region.regions, function(ir, er){
+                var flt = er.charAt(0);
+                if (flt != fl) {
+                    fl = flt;
+                    reglist.append(reggroup);
+                    reggroup = $('<div class="region-group"><div class="region-letter">'+fl+'</div></div>');
+                }
+                reggroup.append('<a href="#" class="region-item">'+er+'</a>');
+            });
+            reglist.append(reggroup);
+            wrap_region.append(reglist);
+            container.append(wrap_region);
+        });
+
+        t.createPacks(t.current);
+        $('.tooltip').tooltipster({theme: 'tooltipster-light'});
+    };
+
+    this.createPacks = function (region) {
+
+        var wrap_packages = $('#wrap-packages'),
+            r = t.data[region],
+            temp_base = $('#template-base').html(),
+            base = Mustache.render(temp_base, r);
+        wrap_packages.html('');
+        wrap_packages.append(base);
+        t.tariff.updateTotal();
+    };
+
+    this.region_name.click(function () {
+        $(this).toggleClass('open');
+        $(this).parents('.header').next().slideToggle(300);
+        var elementClick = $(this).data("id");
+        var destination = $(elementClick).offset().top;
+        $('html, body').animate({scrollTop: destination}, 600);
+        t.search.val('');
+        t.search.keyup();
+
+    });
+
+    this.region_list.on('keyup', '#search', function () {
+        var query = $(this).val(),
+            els = $('.region-item'),
+            groups = $('.region-group'),
+            regions = $('.wrap-regions');
+
+        groups.show();
+        regions.show();
+
+        els.each(function () {
+            if (!$(this).html().match(new RegExp('.*?' + query + '.*?', 'i'))) {
+                $(this).hide();
+            } else {
+                $(this).show();
+            }
+        });
+
+        groups.each(function () {
+            if (!$(this).find('.region-item:visible').length) {
+                $(this).hide();
+            } else {
+                $(this).show();
+            }
+        });
+
+        regions.each(function () {
+            if (!$(this).find('.region-group:visible').length) {
+                $(this).hide();
+            } else {
+                $(this).show();
+            }
+        });
+
+    });
+
+
+    this.region_list.on('click', '.region-item', function (e) {
+        e.preventDefault();
+        t.region_name.find('strong').text($(this).text());
+        t.region_name.click();
+        var new_reg = $(this).parents('.wrap-regions').data('district');
+        if (new_reg != t.current) {
+            t.current = new_reg;
+            t.createPacks(t.current);
+        }
+    });
+
+    $('.step2').on('click', '.tabs a', function (e) {
+        e.preventDefault();
+        if (!$(this).is('.active')) {
+            $('.tabs a').removeClass('active');
+            $(this).addClass('active');
+            $('.area:visible').find('.scroll').mCustomScrollbar("destroy");
+            $('.area').hide(0);
+            $($(this).attr('href')).show(0);
+            if (!$($(this).attr('href')).find('.mCustomScrollbar').length) {
+                $($(this).attr('href')).find('.scroll').mCustomScrollbar();
+            }
+        }
+    });
+
+    $(document).on('click', '.show-chaneels', function (e) {
+        e.preventDefault();
+        var txt = $(this).text();
+        $(this).toggleClass('open');
+        $(this).text($(this).attr('href'));
+        $(this).attr('href', txt);
+        var t2 = $(this).parents('.package-head').next();
+        $(this).parents('.package-head').find('.tabs').slideToggle();
+        if (t2.is(':visible')) {
+            t2.slideUp(function () {
+                t2.find('.scroll').mCustomScrollbar("destroy");
+            });
+        }
+        else {
+            t2.slideDown(function () {
+                t2.find('.scroll:visible').mCustomScrollbar();
+            });
+        }
+
+    });
+
+    $(document).on('click', '.hide-chaneels', function (e) {
+        $(this).parents('.package').find('.show-chaneels').click();
+    });
+
+    $(window).on("load", function () {
+        $(".scroll:visible").mCustomScrollbar();
+    });
+
+}
+
+
+function tariffController() {
+
+    this.total_pack = $('#total-channels');
+    this.total_equip = $('#tequip');
+    var t = this;
+
+
+    this.getPackages = function () {
+        return $('.step2 .package input:checked').parents('.package');
+    };
+
+    this.getEquipPrice = function () {
+        var price = 0;
+        $('.equipment input:checked').each(function () {
+            cur_price = $(this).attr('val');
+            price += parseInt(cur_price ? cur_price : 0);
+        });
+        return price;
+    };
+
+    this.getPlatePrice = function () {
+        var price = 0;
+        $('.plate input:checked').each(function () {
+            cur_price = $(this).attr('val');
+            price += parseInt(cur_price ? cur_price : 0);
+        });
+        return price;
+    };
+
+    $(document).on('change','.equipment input, .plate input',function () {
+        $(this).closest('.equipment').find('.block').removeClass('choice');
+        $(this).closest('.block').toggleClass('choice');
+        $('#total-plate').find('.price').text(t.getEquipPrice() + t.getPlatePrice());
+    });
+
+    this.plural = function (i, s1, s3, s7) {
+        s = String(i);
+        e = s.slice(-2);
+        f = parseInt(e);
+        if (['11', '12', '13', '14'].indexOf(e) + 1 && (9 < f || f < 20 || f == 0)) {
+            d = s7;
+        }
+        else {
+            e = (s.slice(s.length - 1))[0];
+            if (9 < i && i < 20 && i == 0) {
+                d = s7;
+            }
+            else {
+                if (e == '1') {
+                    d = s1;
+                }
+                else {
+                    if (['2', '3', '4'].indexOf(e) + 1) {
+                        d = s3;
+                    }
+                    else {
+                        d = s7;
+                    }
+                }
+            }
+        }
+        return d
+    };
+
+    this.getPacksName = function () {
+        var names = [];
+        t.getPackages().each(function (i, e) {
+            names.push($(this).find('.package-head .lp strong').text());
+        });
+        return names.reverse().join(', ');
+    };
+
+    this.getCountPacks = function () {
+        var c = this.getPackages().length;
+        return c + this.plural(c, ' пакет', ' пакета', ' пакетов');
+    };
+
+    this.getCountChannels = function () {
+        var sum = 0;
+        t.getPackages().each(function (i, e) {
+            sum += parseInt($(this).data('channels'));
+        });
+        return sum + this.plural(sum, ' канал', ' канала', ' каналов');
+    };
+
+    this.getPrice = function () {
+        var sum = 0;
+        t.getPackages().each(function (i, e) {
+            sum += parseInt($(this).find('.price').text());
+        });
+        return sum;
+    };
+
+    this.updateTotal = function () {
+        t.total_pack.find('.choice-packs').text('Выбрано: ' + t.getCountPacks() + ', ' + t.getCountChannels());
+        t.total_pack.find('.choice-names').text(t.getPacksName());
+        t.total_pack.find('.price').text(t.getPrice());
+    };
+
+    $(document).on('change', '.package .item-chk input', function () {
+        $(this).parents('.package-head').toggleClass('choice');
+        t.updateTotal();
+    });
+
+    this.updateTotal();
+}
+
+//var arr = '';
+//$('.package-item--channels-list:eq(0) a').each(function(i,e){
+//    arr += '{"name": "'+$(this).find('span').text()+'", "img": "'+$(this).find('img').attr('src')+'"},';
+//
+//});
+//arr;
